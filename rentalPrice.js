@@ -1,75 +1,88 @@
 
-function price(pickup, dropoff, pickupDate, dropoffDate, type, age) {
-  const clazz = getClazz(type);
-  const days = get_days(pickupDate, dropoffDate);
-  const season = getSeason(pickupDate, dropoffDate);
+function price(pickupDate, dropoffDate, carClass, age, licenserelease) {
+    // Get car rent days count
+    const rentalDaysCount = getDaysCount(pickupDate, dropoffDate);
 
-  if (age < 18) {
-      return "Driver too young - cannot quote the price";
-  }
+    // Get drivers license days count
+    const todaysDate = new Date().getTime();
+    const driversLicenseCount = getDaysCount(licenserelease, todaysDate);
 
-  if (age <= 21 && clazz !== "Compact") {
-      return "Drivers 21 y/o or less can only rent Compact vehicles";
-  }
+    // Get "Low" or "High" season type
+    const seasonType = getSeasonType(pickupDate, dropoffDate);
 
-  let rentalprice = age * days;
+    const MIN_DRIVER_AGE = 18;
+    const MAX_COMPACT_DRIVER_AGE = 21;
+    const RACER_DISCOUNT_AGE = 25;
 
-  if (clazz === "Racer" && age <= 25 && season === "High") {
-      rentalprice *= 1.5;
-  }
+    const HIGH_SEASON_INCREASE = 1.15;
+    const LOW_SEASON_DECREASE = 0.9;
 
-  if (season === "High" ) {
-    rentalprice *= 1.15;
-  }
+    // Individuals holding a driver's license for less than a year are ineligible to rent.
+    if (driversLicenseCount < 365) {
+        return "Individuals holding a driver's license for less than a year are ineligible to rent";
+    }
 
-  if (days > 10 && season === "Low" ) {
-      rentalprice *= 0.9;
-  }
-  return '$' + rentalprice;
+    if (age < MIN_DRIVER_AGE) {
+        return "Driver too young - cannot quote the price";
+    }
+
+    if (age <= MAX_COMPACT_DRIVER_AGE && carClass !== "Compact") {
+        return "Drivers 21 y/o or less can only rent Compact vehicles";
+    }
+
+    let rentalprice = age * rentalDaysCount;
+
+    // If the driver's license has been held for less than two years,
+    // the rental price is increased by 30%.
+    if (driversLicenseCount < 365 * 2) {
+        rentalprice *= 1.3;
+    }
+
+    // If the driver's license has been held for less than three years,
+    // then an additional 15 euros will be added to the daily rental price during high season.
+    if (driversLicenseCount < (365 * 3) && seasonType === "High") {
+        rentalprice += (rentalDaysCount * 15);
+    }
+
+    if (carClass === "Racer" && age <= RACER_DISCOUNT_AGE && seasonType === "High") {
+        rentalprice *= 1.5;
+    }
+
+    if (seasonType === "High") {
+        rentalprice *= HIGH_SEASON_INCREASE;
+    }
+
+    if (rentalDaysCount > 10 && seasonType === "Low") {
+        rentalprice *= LOW_SEASON_DECREASE;
+    }
+    return '$' + rentalprice;
 }
 
-function getClazz(type) {
-  switch (type) {
-      case "Compact":
-          return "Compact";
-      case "Electric":
-          return "Electric";
-      case "Cabrio":
-          return "Cabrio";
-      case "Racer":
-          return "Racer";
-      default:
-          return "Unknown";
-  }
+function getDaysCount(pickupDate, dropoffDate) {
+    const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
+    const firstDate = new Date(pickupDate);
+    const secondDate = new Date(dropoffDate);
+    return Math.round(Math.abs((firstDate - secondDate) / oneDay));
 }
 
-function get_days(pickupDate, dropoffDate) {
-  const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
-  const firstDate = new Date(pickupDate);
-  const secondDate = new Date(dropoffDate);
+function getSeasonType(pickupDate, dropoffDate) {
+    const pickup = new Date(pickupDate);
+    const dropoff = new Date(dropoffDate);
 
-  return Math.round(Math.abs((firstDate - secondDate) / oneDay)) + 1;
-}
+    const April = 4;
+    const October = 10;
 
-function getSeason(pickupDate, dropoffDate) {
-  const pickup = new Date(pickupDate);
-  const dropoff = new Date(dropoffDate);
+    const pickupMonth = pickup.getMonth();
+    const dropoffMonth = dropoff.getMonth();
 
-  const start = 4; 
-  const end = 10;
-
-  const pickupMonth = pickup.getMonth();
-  const dropoffMonth = dropoff.getMonth();
-
-  if (
-      (pickupMonth >= start && pickupMonth <= end) ||
-      (dropoffMonth >= start && dropoffMonth <= end) ||
-      (pickupMonth < start && dropoffMonth > end)
-  ) {
-      return "High";
-  } else {
-      return "Low";
-  }
+    if (
+        (pickupMonth >= April && pickupMonth <= October) ||
+        (dropoffMonth >= April && dropoffMonth <= October)
+    ) {
+        return "High";
+    } else {
+        return "Low";
+    }
 }
 
 exports.price = price;
